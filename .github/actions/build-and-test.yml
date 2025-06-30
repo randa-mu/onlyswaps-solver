@@ -21,6 +21,9 @@ runs:
       with:
         tool: nextest
 
+    - uses: build-dependencies
+      run: ./build-dependencies.sh
+
     - name: Check formatting
       working-directory: ${{ inputs.working-directory }}
       run: cargo fmt --check ${{ inputs.additional-flags }}
