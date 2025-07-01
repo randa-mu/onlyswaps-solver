@@ -23,15 +23,10 @@ struct CliArgs {
     )]
     config_path: String,
 
-    #[arg(short = 's', long = "secret-key", env = "SOLVER_PRIVATE_KEY")]
-    secret_key: String,
+    #[arg(short = 's', long = "private-key", env = "SOLVER_PRIVATE_KEY")]
+    private_key: String,
 
-    #[arg(
-        short = 'p',
-        long = "port",
-        env = "SOLVER_PORT",
-        default_value = "8080"
-    )]
+    #[arg(short = 'p', long = "port", env = "SOLVER_PORT", default_value = "8080")]
     port: u16,
 }
 
@@ -62,24 +57,16 @@ async fn main() -> eyre::Result<()> {
     let listener = TcpListener::bind(("0.0.0.0", cli.port)).await?;
 
     if config.networks.is_empty() {
-        println!("no networks configured");
-        return Ok(());
+        return Err(eyre!("no networks configured"));
     }
 
     let network = config.networks.get(0).expect("should be impossibru");
-    let signer = PrivateKeySigner::from_str(&cli.secret_key)?;
+    let signer = PrivateKeySigner::from_str(&cli.private_key)?;
     let our_address = signer.address();
     println!("using address {} for chain {}", our_address, &network.name);
 
-    let provider = create_provider(
-        &network.rpc_url,
-        PrivateKeySigner::from_str(&cli.secret_key)?,
-    )
-    .await?;
-    let rusd_token_contract = ERC20FaucetToken::new(
-        "0xb1F323844dcfde76710fC801F33D4E24d7201B84".parse()?,
-        provider,
-    );
+    let provider = create_provider(&network.rpc_url, PrivateKeySigner::from_str(&cli.private_key)?).await?;
+    let rusd_token_contract = ERC20FaucetToken::new("0xb1F323844dcfde76710fC801F33D4E24d7201B84".parse()?, provider);
 
     let rusd_balance = rusd_token_contract.balanceOf(our_address).call().await?;
     if rusd_balance == U256::from(0) {
@@ -137,10 +124,7 @@ async fn healthcheck_handler() -> &'static str {
     "ok"
 }
 
-async fn create_provider(
-    rpc_url: &str,
-    signer: PrivateKeySigner,
-) -> eyre::Result<Box<impl Provider>> {
+async fn create_provider(rpc_url: &str, signer: PrivateKeySigner) -> eyre::Result<Box<impl Provider>> {
     let base = ProviderBuilder::new().wallet(EthereumWallet::from(signer));
     if rpc_url.starts_with("http") {
         Ok(Box::new(base.connect_http(rpc_url.parse()?)))
