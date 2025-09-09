@@ -11,10 +11,10 @@ clap = { version = "4.5.40", features = ["derive", "env"] }
 dotenv = "0.15.0"
 eyre = "0.6.12"
 futures = "0.3.31"
+itertools = "0.10.5"
+moka = { version = "0.12.10", features = ["sync"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 speculoos = "0.13.0"
 shellexpand = "3.1.1"
 tokio = { version = "1.45.1", features = ["rt-multi-thread", "signal"] }
-itertools = "0.10.5"
-moka = { version = "0.12.10", features = ["sync"] }
