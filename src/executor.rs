@@ -1,10 +1,11 @@
 use crate::eth::ERC20FaucetToken::ERC20FaucetTokenInstance;
 use crate::eth::Router::RouterInstance;
-use crate::model::Trade;
+use crate::model::{RequestId, Trade};
 use crate::network::Network;
 use crate::util::normalise_chain_id;
 use alloy::primitives::TxHash;
 use alloy::providers::Provider;
+use moka::sync::Cache;
 use std::collections::HashMap;
 
 pub(crate) struct TradeExecutor<'a, P> {
@@ -18,9 +19,13 @@ impl<'a, P: Provider> TradeExecutor<'a, P> {
         let tokens = networks.iter().map(|(chain_id, net)| (*chain_id, &net.token)).collect();
         Self { routers, tokens }
     }
-    pub async fn execute(&self, trades: Vec<Trade>) {
+    pub async fn execute(&self, trades: Vec<Trade>, in_flight: &mut Cache<RequestId, ()>) {
         for trade in trades {
-            // get the contract bindings for the destination chain
+            // first we add the trade to the cache so that we don't retry it in the next block
+            // (before it's been finalised, potentially)
+            in_flight.insert(trade.request_id, ());
+
+            // then we get the contract bindings for the destination chain
             let router = self
                 .routers
                 .get(&normalise_chain_id(trade.dest_chain_id))

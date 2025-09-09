@@ -1,8 +1,9 @@
 use crate::eth::IRouter::SwapRequestParameters;
-use crate::model::{ChainState, Trade, Transfer};
+use crate::model::{ChainState, RequestId, Trade, Transfer};
 use crate::util::normalise_chain_id;
 use alloy::primitives::U256;
 use async_trait::async_trait;
+use moka::sync::Cache;
 use std::collections::HashMap;
 
 #[async_trait]
@@ -27,15 +28,15 @@ impl<'a, CSP: ChainStateProvider> Solver<'a, CSP> {
         Ok(Self { states, chains })
     }
 
-    pub async fn on_block(&mut self, chain_id: u64) -> eyre::Result<Vec<Trade>> {
+    pub async fn fetch_state(&mut self, chain_id: u64, in_flight: &Cache<RequestId, ()>) -> eyre::Result<Vec<Trade>> {
         let chain = self.chains.get(&chain_id).expect("somehow got event for a non-existent chain");
         let updated_state = chain.fetch_state().await?;
         self.states.insert(chain_id, updated_state);
-        Ok(calculate_trades(chain_id, &self.states))
+        Ok(calculate_trades(chain_id, &self.states, in_flight))
     }
 }
 
-fn calculate_trades(chain_id: u64, states: &HashMap<u64, ChainState>) -> Vec<Trade> {
+fn calculate_trades(chain_id: u64, states: &HashMap<u64, ChainState>, in_flight: &Cache<RequestId, ()>) -> Vec<Trade> {
     let mut trades = Vec::new();
     let mut owned_states = states.clone();
     // we only want the current chain's transactions, as we may have trades in flight for other chains
@@ -45,6 +46,9 @@ fn calculate_trades(chain_id: u64, states: &HashMap<u64, ChainState>) -> Vec<Tra
         .transfers;
 
     for transfer in transfers {
+        if in_flight.contains_key(&transfer.request_id) {
+            continue;
+        }
         solve(transfer, &mut trades, &mut owned_states);
     }
 
@@ -104,6 +108,7 @@ mod tests {
     use crate::util::test::{generate_address, generate_request_id};
     use alloy::primitives::{Address, U256, address};
     use async_trait::async_trait;
+    use moka::sync::Cache;
     use speculoos::assert_that;
     use speculoos::vec::VecAssertions;
     use std::collections::HashMap;
@@ -136,7 +141,7 @@ mod tests {
 
         // when
         let mut solver = Solver::from(&networks).await.unwrap();
-        let trades = solver.on_block(chain_id).await.unwrap();
+        let trades = solver.fetch_state(chain_id, &Cache::new(1)).await.unwrap();
 
         // then
         let expected_output_amount = transfer_params.params.amountOut;
@@ -177,7 +182,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(2);
@@ -208,7 +213,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(1);
@@ -234,7 +239,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(0);
@@ -260,7 +265,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(0);
@@ -286,7 +291,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(0);
@@ -315,7 +320,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(0);
@@ -344,7 +349,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(0);
@@ -373,7 +378,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(0);
@@ -404,7 +409,7 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
 
         // then
         assert_that!(trades).has_length(1);
@@ -434,7 +439,40 @@ mod tests {
         let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
 
         // when
-        let trades = calculate_trades(1, &state);
+        let trades = calculate_trades(1, &state, &Cache::new(1));
+
+        // then
+        assert_that!(trades).has_length(0);
+    }
+
+    #[test]
+    fn transfer_that_exist_in_cache_dont_make_trades() {
+        // given
+        // transfer use 100
+        let transfer_params = create_transfer_params(USER_ADDR, 1, 2, 100);
+
+        let src_chain_state = ChainState {
+            token_addr: TOKEN_ADDR,
+            native_balance: U256::from(0),
+            token_balance: U256::from(0),
+            transfers: vec![transfer_params.clone()],
+            already_fulfilled: vec![],
+        };
+        let dst_chain_state = ChainState {
+            token_addr: TOKEN_ADDR,
+            native_balance: U256::from(1000),
+            token_balance: U256::from(200),
+            transfers: vec![],
+            already_fulfilled: vec![],
+        };
+        // we create a cache that already has the request_id in it
+        let cache = Cache::new(1);
+        let id = transfer_params.clone().request_id;
+        cache.insert(id, ());
+        let state = HashMap::from([(1, src_chain_state), (2, dst_chain_state)]);
+
+        // when
+        let trades = calculate_trades(1, &state, &cache);
 
         // then
         assert_that!(trades).has_length(0);
