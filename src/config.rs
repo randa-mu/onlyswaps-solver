@@ -5,7 +5,7 @@ use std::fs;
 
 #[derive(Parser, Debug)]
 pub(crate) struct CliArgs {
-    #[arg(short = 'c', long = "config-path", env = "SOLVER_CONFIG_PATH", default_value = "~/.solver/config.json")]
+    #[arg(short = 'c', long = "config", env = "SOLVER_CONFIG_PATH", default_value = "~/.solver/config.json")]
     pub config_path: String,
 
     #[arg(short = 's', long = "private-key", env = "SOLVER_PRIVATE_KEY")]

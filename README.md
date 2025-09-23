@@ -38,7 +38,7 @@ First retrieve and build submodules with `./build-dependencies.sh` then run `car
   - `$ forge script script/onlyswaps/DeployAllContracts.s.sol --broadcast --rpc-url http://127.0.0.1:31338 --private-key $PRIVATE_KEY`
  
 - Run the agent configured with the [local config](./config-local.json) and the second anvil key:
-`$ cargo run -- --config-file ./config-local.json --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
+`$ cargo run -- --config ./config-local.json --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
  
 - request a swap a monitor the logs for it happening:
 `$ ./request-swap.sh 31337 31338`
