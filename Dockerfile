@@ -7,12 +7,12 @@ ENV PATH="/root/.foundry/bin:${PATH}"
 RUN foundryup
 
 FROM sol_builder AS solidity-builder
-WORKDIR /app/onlysubs-solidity
-COPY ./onlysubs-solidity/package.json ./
-COPY ./onlysubs-solidity/package-lock.json ./
+WORKDIR /app/onlyswaps-solidity
+COPY ./onlyswaps-solidity/package.json ./
+COPY ./onlyswaps-solidity/package-lock.json ./
 RUN npm install
 
-COPY ./onlysubs-solidity ./
+COPY ./onlyswaps-solidity ./
 RUN npm run build
 
 FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
@@ -27,7 +27,7 @@ COPY --from=planner /app/recipe.json recipe.json
 
 # Build dependencies - this is the caching Docker layer!
 RUN cargo chef cook --release --recipe-path recipe.json
-COPY --from=solidity-builder /app/onlysubs-solidity/out ./onlysubs-solidity/out
+COPY --from=solidity-builder /app/onlyswaps-solidity/out ./onlyswaps-solidity/out
 
 # Build application
 COPY . .

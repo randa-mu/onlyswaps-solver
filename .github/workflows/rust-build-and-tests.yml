@@ -23,29 +23,29 @@ jobs:
           submodules: 'recursive'
           token: ${{ secrets.PAT_TOKEN }}
 
-      # 1. Compile onlysubs-solidity
-      - name: Cache npm onlysubs-solidity
+      # 1. Compile onlyswaps-solidity
+      - name: Cache npm onlyswaps-solidity
         uses: actions/cache@v3
         with:
-          path: onlysubs-solidity/node_modules
-          key: ${{ runner.os }}-npm-onlysubs-solidity-${{ hashFiles('onlysubs-solidity/package-lock.json') }}
+          path: onlyswaps-solidity/node_modules
+          key: ${{ runner.os }}-npm-onlyswaps-solidity-${{ hashFiles('onlyswaps-solidity/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-onlysubs-solidity-
+            ${{ runner.os }}-npm-onlyswaps-solidity-
 
-      - name: onlysubs-solidity - Install dependencies
-        working-directory: ./onlysubs-solidity
+      - name: onlyswaps-solidity - Install dependencies
+        working-directory: ./onlyswaps-solidity
         run: npm ci
 
-      - name: Cache Solidity onlysubs-solidity
+      - name: Cache Solidity onlyswaps-solidity
         uses: actions/cache@v3
         with:
-          path: onlysubs-solidity/out
-          key: ${{ runner.os }}-sol-onlysubs-solidity-${{ hashFiles('onlysubs-solidity/src/**/*.sol', 'onlysubs-solidity/lib/**/*.sol') }}
+          path: onlyswaps-solidity/out
+          key: ${{ runner.os }}-sol-onlyswaps-solidity-${{ hashFiles('onlyswaps-solidity/src/**/*.sol', 'onlyswaps-solidity/lib/**/*.sol') }}
           restore-keys: |
-            ${{ runner.os }}-sol-onlysubs-solidity-
+            ${{ runner.os }}-sol-onlyswaps-solidity-
 
-      - name: onlysubs-solidity - Build Solidity contracts
-        working-directory: ./onlysubs-solidity
+      - name: onlyswaps-solidity - Build Solidity contracts
+        working-directory: ./onlyswaps-solidity
         run: npm run build:forge
 
       # 2. Build and test workspace packages
