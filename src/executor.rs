@@ -3,12 +3,13 @@ use crate::eth::Router::RouterInstance;
 use crate::model::{RequestId, Trade};
 use crate::network::Network;
 use crate::util::normalise_chain_id;
-use alloy::primitives::TxHash;
+use alloy::primitives::{Address, TxHash};
 use alloy::providers::Provider;
 use moka::sync::Cache;
 use std::collections::HashMap;
 
 pub(crate) struct TradeExecutor<'a, P> {
+    own_address: Address,
     routers: HashMap<u64, &'a RouterInstance<P>>,
     tokens: HashMap<u64, &'a ERC20FaucetTokenInstance<P>>,
 }
@@ -17,7 +18,13 @@ impl<'a, P: Provider> TradeExecutor<'a, P> {
     pub fn new(networks: &'a HashMap<u64, Network<P>>) -> Self {
         let routers = networks.iter().map(|(chain_id, net)| (*chain_id, &net.router)).collect();
         let tokens = networks.iter().map(|(chain_id, net)| (*chain_id, &net.token)).collect();
-        Self { routers, tokens }
+        let (_, network) = networks.iter().next().expect("if we don't have a network by now, something is very wrong");
+
+        Self {
+            routers,
+            tokens,
+            own_address: network.own_addr,
+        }
     }
     pub async fn execute(&self, trades: Vec<Trade>, in_flight: &mut Cache<RequestId, ()>) {
         for trade in trades {
@@ -54,11 +61,15 @@ impl<'a, P: Provider> TradeExecutor<'a, P> {
             let relay: eyre::Result<TxHash> = async {
                 let tx = router
                     .relayTokens(
-                        trade.token_addr,
-                        trade.recipient_addr,
-                        trade.swap_amount,
+                        self.own_address,
                         trade.request_id.into(),
+                        trade.sender_addr,
+                        trade.recipient_addr,
+                        trade.token_in_addr,
+                        trade.token_out_addr,
+                        trade.swap_amount,
                         trade.src_chain_id,
+                        trade.nonce,
                     )
                     .send()
                     .await?;

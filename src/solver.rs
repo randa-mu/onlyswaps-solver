@@ -147,7 +147,7 @@ mod tests {
         let expected_output_amount = transfer_params.params.amountOut;
         let expected_trade = Trade {
             request_id: transfer_params.request_id,
-            token_addr: transfer_params.params.tokenOut,
+            token_in_addr: transfer_params.params.tokenOut,
             src_chain_id: transfer_params.params.srcChainId,
             dest_chain_id: transfer_params.params.dstChainId,
             recipient_addr: transfer_params.params.recipient,

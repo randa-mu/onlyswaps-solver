@@ -20,24 +20,30 @@ pub struct Transfer {
 impl From<&Transfer> for Trade {
     fn from(transfer: &Transfer) -> Self {
         Trade {
-            token_addr: transfer.params.tokenOut,
+            token_in_addr: transfer.params.tokenIn,
+            token_out_addr: transfer.params.tokenOut,
             src_chain_id: transfer.params.srcChainId,
             dest_chain_id: transfer.params.dstChainId,
+            sender_addr: transfer.params.sender,
             recipient_addr: transfer.params.recipient,
             request_id: transfer.request_id,
             swap_amount: transfer.params.amountOut,
+            nonce: transfer.params.nonce,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Trade {
-    pub token_addr: Address,
+    pub token_in_addr: Address,
+    pub token_out_addr: Address,
     pub src_chain_id: U256,
     pub dest_chain_id: U256,
+    pub sender_addr: Address,
     pub recipient_addr: Address,
     pub request_id: RequestId,
     pub swap_amount: U256,
+    pub nonce: U256,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
