@@ -1,5 +1,9 @@
 # onlyswaps-solver
 
+> [!WARNING]
+> This repository has been moved into the [dcipher monorepo](https://github.com/randa-mu/dcipher) under the `/bin` folder.
+> Please make all future changes, suggestions, issues, etc there!
+
 ## Build
 First retrieve and build submodules with `./build-dependencies.sh` then run `cargo build`
 
